@@ -242,7 +242,7 @@ func Execute(kialiInterface *mcputil.KialiInterface, args map[string]interface{}
 	// namespace) so we bypass Kiali's mesh-scoped namespace access check and
 	// let Kubernetes RBAC on the dynamic client handle authorization.
 	if resourceType == "argoapp" {
-		return executeArgoCDApplication(kialiInterface, resourceName, namespaces, clusterName)
+		return executeArgoCDApplication(kialiInterface, namespaces, resourceName, clusterName)
 	}
 
 	if resourceName != "" && namespaces == "" {
@@ -265,7 +265,7 @@ func Execute(kialiInterface *mcputil.KialiInterface, args map[string]interface{}
 			if statusCode != http.StatusOK {
 				invalidNamespaces = append(invalidNamespaces, ns)
 				if statusCode == http.StatusInternalServerError ||
-					(statusCode == http.StatusForbidden && invalidStatusCode == http.StatusInternalServerError) {
+					(statusCode == http.StatusForbidden && invalidStatusCode != http.StatusInternalServerError) {
 					invalidStatusCode = statusCode
 				}
 				continue
@@ -304,7 +304,7 @@ func Execute(kialiInterface *mcputil.KialiInterface, args map[string]interface{}
 	var resp interface{}
 	var status int
 	var err error
-	if resourceName != "" && len(namespacesSlice) > 0 {
+	if resourceName != "" && len(namespacesSlice) > 1 {
 		return "Exactly one namespace is required when resource name is provided", http.StatusBadRequest
 	}
 	if resourceName != "" && len(namespacesSlice) == 1 {
@@ -321,7 +321,7 @@ func Execute(kialiInterface *mcputil.KialiInterface, args map[string]interface{}
 			return err.Error(), status
 		}
 	}
-	if len(errors) > 1 {
+	if len(errors) > 0 {
 		return map[string]interface{}{
 			"response": resp,
 			"errors":   errors,
